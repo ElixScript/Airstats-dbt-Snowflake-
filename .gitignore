@@ -1,0 +1,17 @@
+# Python & virtual environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environment & secrets
+.env
+.env.*
+profiles.yml
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
