@@ -10,10 +10,6 @@ The pipeline follows a **Medallion Architecture** with ephemeral staging models,
 
 ![AirStats Architecture](architecture.jpg)
 
-### Data Lineage (dbt Docs)
-
-![dbt Data Lineage](data%20lineage.png)
-
 ### Tech Stack
 - **Data Warehouse:** Snowflake (`AIRSTATS` database)
 - **Transformation & Modeling:** `dbt-core` (`~1.11.0`), `dbt-snowflake` (`~1.11.0`)
@@ -56,6 +52,12 @@ Tracks historical attribute changes (SCD Type 2) using the **`check`** strategy 
 
 ### 5. Analyses (`analyses/`)
 - `la_heliport_closed.sql`: Ad-hoc analytical query inspecting historical SCD Type 2 records in `scd_silver_airports` for airport `01CN` (*Los Angeles County Sheriff's Department Heliport*) to verify status transitions (e.g., operational to `closed`).
+
+### Data Lineage (dbt Docs)
+
+Generated automatically via `dbt docs generate`, illustrating end-to-end dependencies from raw sources through ephemeral staging, silver models, SCD Type 2 snapshots, and analyses:
+
+![dbt Data Lineage](data%20lineage.png)
 
 ---
 
