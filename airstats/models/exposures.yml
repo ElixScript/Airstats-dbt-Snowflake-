@@ -1,0 +1,17 @@
+version: 2
+
+exposures:
+  - name: airstats_streamlit_dashboard
+    label: AirStats Aviation Dashboard (Streamlit)
+    type: dashboard
+    maturity: high
+    description: >
+      Interactive Streamlit in Snowflake dashboard visualizing global airport
+      distribution, active runway infrastructure, geographic footprint, and
+      yearly community comment trends from the AirStats Silver layer.
+    depends_on:
+      - ref('silver_airports')
+      - ref('silver_runways')
+      - ref('silver_airport_comments')
+    owner:
+      name: Analytics Engineering

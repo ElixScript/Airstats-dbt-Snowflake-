@@ -14,6 +14,7 @@ The pipeline follows a **Medallion Architecture** with ephemeral staging models,
 - **Data Warehouse:** Snowflake (`AIRSTATS` database)
 - **Transformation & Modeling:** `dbt-core` (`~1.11.0`), `dbt-snowflake` (`~1.11.0`)
 - **Data Quality:** Built-in dbt tests, `metaplane/dbt_expectations`, and custom singular SQL tests
+- **BI & Visualization:** Streamlit in Snowflake (`Altair` + Snowpark)
 - **SQL Linting:** `SQLFluff` with the dbt templater (`snowflake` dialect)
 - **Environment Management:** Python 3.13 managed via `uv`
 
@@ -21,7 +22,7 @@ The pipeline follows a **Medallion Architecture** with ephemeral staging models,
 
 ## Data Models & Pipeline Layers
 
-For full source table schemas and column definitions, see [DATASETS.md](DATASETS.md).
+For full source table schemas and column definitions, see [DATASETS.md](DATASETS.md). For 10 ready-to-run Snowflake analytical SQL examples, see [ANALYTICS.md](ANALYTICS.md).
 
 ### 1. Sources (`models/sources.yml`)
 Defined under the `airstats` source pointing to the `RAW` schema in Snowflake:
@@ -75,21 +76,34 @@ All test failures are automatically persisted to Snowflake in the `_test_failure
 
 ---
 
+## Analytics Dashboard (Streamlit in Snowflake)
+
+An interactive single-page dashboard ([dashboard/streamlit_app.py](dashboard/streamlit_app.py)) runs natively inside **Snowflake Streamlit** on top of the cleaned `AIRSTATS.DEV` Silver tables. It features dynamic Continent and Airport Type filters, KPI cards, Altair bar charts, a geographic airport map, yearly community comment trends, and a Top 15 Longest Active Runways table.
+
+![AirStats Streamlit Dashboard](dashboard.png)
+
+---
+
 ## Project Structure
 
 ```text
 .
+├── ANALYTICS.md                             # 10 sample analytical SQL queries for Snowflake
 ├── DATASETS.md                              # Raw dataset documentation & ER overview
 ├── README.md                                # Project overview & usage guide
 ├── architecture.jpg                         # Pipeline architecture diagram
+├── dashboard.png                            # Streamlit in Snowflake dashboard preview
 ├── data lineage.png                         # dbt Docs DAG / data lineage graph
 ├── pyproject.toml                           # Python & dbt dependencies (uv)
 ├── uv.lock                                  # Locked dependency versions
+├── dashboard/
+│   └── streamlit_app.py                     # Streamlit in Snowflake analytics app
 └── airstats/                                # dbt project root
     ├── dbt_project.yml                      # dbt project configuration
     ├── packages.yml                         # External dbt packages (dbt_expectations)
     ├── models/
     │   ├── sources.yml                      # Snowflake RAW source definitions
+    │   ├── exposures.yml                    # Downstream Streamlit dashboard exposure
     │   ├── bronze/                          # Ephemeral staging models
     │   │   ├── src_airports.sql
     │   │   ├── src_runways.sql
@@ -205,6 +219,12 @@ uv run dbt docs serve --profiles-dir .
 # Lint SQL models with SQLFluff
 uv run sqlfluff lint models/
 ```
+
+### 5. Launch the Dashboard (Streamlit in Snowflake)
+
+1. In Snowflake UI, navigate to **Projects -> Streamlit -> + Streamlit App**.
+2. Select Database `AIRSTATS`, Schema `DEV`, and Warehouse `COMPUTE_WH`.
+3. Paste the contents of [dashboard/streamlit_app.py](dashboard/streamlit_app.py) into the editor and click **Run**.
 
 ---
 
