@@ -10,6 +10,10 @@ The pipeline follows a **Medallion Architecture** with ephemeral staging models,
 
 ![AirStats Architecture](architecture.jpg)
 
+### Data Lineage (dbt Docs)
+
+![dbt Data Lineage](data%20lineage.png)
+
 ### Tech Stack
 - **Data Warehouse:** Snowflake (`AIRSTATS` database)
 - **Transformation & Modeling:** `dbt-core` (`~1.11.0`), `dbt-snowflake` (`~1.11.0`)
@@ -76,6 +80,7 @@ All test failures are automatically persisted to Snowflake in the `_test_failure
 ├── DATASETS.md                              # Raw dataset documentation & ER overview
 ├── README.md                                # Project overview & usage guide
 ├── architecture.jpg                         # Pipeline architecture diagram
+├── data lineage.png                         # dbt Docs DAG / data lineage graph
 ├── pyproject.toml                           # Python & dbt dependencies (uv)
 ├── uv.lock                                  # Locked dependency versions
 └── airstats/                                # dbt project root
@@ -109,25 +114,46 @@ All test failures are automatically persisted to Snowflake in the `_test_failure
 
 ### Prerequisites
 - Python `3.13` and [`uv`](https://docs.astral.sh/uv/)
-- A Snowflake account with the `AIRSTATS.RAW` schema populated with OurAirports CSV data (`airports`, `runways`, `airport_comments`)
+- A Snowflake account (free trial works)
 
-### 1. Install Dependencies
+### 1. Clone & Install Dependencies
 
 ```bash
+git clone https://github.com/<your-username>/<your-repo-name>.git
+cd <your-repo-name>
+
+# Create the virtual environment and install dbt-core, dbt-snowflake, and SQLFluff
 uv sync
-source .venv/bin/activate   # On Windows PowerShell: .venv\Scripts\Activate.ps1
-```
 
-Install dbt packages:
-
-```bash
+# Install external dbt packages (metaplane/dbt_expectations)
 cd airstats
-dbt deps
+uv run dbt deps
 ```
 
-### 2. Configure Snowflake Profile
+### 2. Prepare Raw Data in Snowflake
 
-Create `~/.dbt/profiles.yml` (or `airstats/profiles.yml`, which is gitignored so credentials are never committed):
+1. In a Snowflake SQL Worksheet, create the database and schemas:
+
+```sql
+CREATE DATABASE IF NOT EXISTS AIRSTATS;
+CREATE SCHEMA IF NOT EXISTS AIRSTATS.RAW;
+CREATE SCHEMA IF NOT EXISTS AIRSTATS.DEV;
+```
+
+2. Download `airports.csv`, `runways.csv`, and `airport-comments.csv` from [OurAirports.com](https://ourairports.com/data/) and load them into `AIRSTATS.RAW` as `AIRPORTS`, `RUNWAYS`, and `AIRPORT_COMMENTS` (via Snowflake UI: **Data -> Databases -> AIRSTATS -> RAW -> Create -> Table -> From File**).
+   - Ensure the `date` column in `AIRPORT_COMMENTS` is typed as `TIMESTAMP_NTZ`.
+   - Because the raw `airport-comments.csv` uses camelCase headers, standardize them to `snake_case`:
+
+```sql
+ALTER TABLE AIRSTATS.RAW.AIRPORT_COMMENTS RENAME COLUMN AIRPORTIDENT TO AIRPORT_IDENT;
+ALTER TABLE AIRSTATS.RAW.AIRPORT_COMMENTS RENAME COLUMN MEMBERNICKNAME TO MEMBER_NICKNAME;
+ALTER TABLE AIRSTATS.RAW.AIRPORT_COMMENTS RENAME COLUMN THREADREF TO THREAD_REF;
+ALTER TABLE AIRSTATS.RAW.AIRPORT_COMMENTS RENAME COLUMN AIRPORTREF TO AIRPORT_REF;
+```
+
+### 3. Configure Snowflake Profile
+
+Create `airstats/profiles.yml` (already gitignored so credentials are never committed):
 
 ```yaml
 airstats:
@@ -135,51 +161,47 @@ airstats:
   outputs:
     dev:
       type: snowflake
-      account: "<your_snowflake_account>"
-      user: "<your_snowflake_user>"
-      role: "TRANSFORM"
-      private_key: "<your_private_key>"
-      private_key_passphrase: "<your_passphrase>"
+      account: "<your_snowflake_account_identifier>"
+      user: "<your_snowflake_login_name>"
+      password: "<your_password_or_programmatic_access_token>"
+      # Or use key-pair auth instead of password:
+      # private_key_path: "/path/to/rsa_key.p8"
+      # private_key_passphrase: "<your_passphrase>"
+      role: "ACCOUNTADMIN"
       database: "AIRSTATS"
       schema: "DEV"
       warehouse: "COMPUTE_WH"
       threads: 4
 ```
 
-Verify the connection:
+> **Note on Snowflake PAT:** If your Snowflake account enforces MFA, generate a **Programmatic Access Token (PAT)** in Snowflake Settings, paste it into `password:`, and ensure a Network Policy is active on your account/user.
+
+Verify the connection from inside `airstats/`:
 
 ```bash
-dbt debug
+uv run dbt debug --profiles-dir .
 ```
 
-### 3. Run the Pipeline
+### 4. Run the Pipeline & Inspect Docs
 
 ```bash
-# Build all models (bronze ephemeral -> silver tables & incremental)
-dbt run
+# Run all models, snapshots, and data tests in dependency order
+uv run dbt build --profiles-dir .
 
-# Capture SCD Type 2 snapshots
-dbt snapshot
+# Or run individual stages:
+uv run dbt run --profiles-dir .
+uv run dbt snapshot --profiles-dir .
+uv run dbt test --profiles-dir .
 
-# Execute all generic, dbt-expectations, and singular data tests
-dbt test
-
-# Or run the full DAG in dependency order
-dbt build
-```
-
-### 4. Incremental Refresh & Documentation
-
-```bash
 # Refresh only the incremental comments model
-dbt run --select silver_airport_comments
+uv run dbt run --select silver_airport_comments --profiles-dir .
 
 # Generate and serve interactive dbt documentation & lineage graph
-dbt docs generate
-dbt docs serve
+uv run dbt docs generate --profiles-dir .
+uv run dbt docs serve --profiles-dir .
 
 # Lint SQL models with SQLFluff
-sqlfluff lint models/
+uv run sqlfluff lint models/
 ```
 
 ---
